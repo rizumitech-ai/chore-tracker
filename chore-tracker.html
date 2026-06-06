@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="家事リスト">
+<meta name="theme-color" content="#7F77DD">
+<title>家族の家事トラッカー</title>
+<style>
+  :root {
+    --purple: #7F77DD;
+    --purple-light: #EEEDFE;
+    --purple-dark: #3C3489;
+    --teal: #1D9E75;
+    --teal-light: #E1F5EE;
+    --teal-dark: #085041;
+    --coral: #D85A30;
+    --coral-light: #FAECE7;
+    --coral-dark: #712B13;
+    --pink: #D4537E;
+    --pink-light: #FBEAF0;
+    --pink-dark: #72243E;
+    --bg: #F8F7FE;
+    --card: #FFFFFF;
+    --text: #1a1a2e;
+    --text-muted: #666;
+    --text-hint: #999;
+    --border: rgba(0,0,0,0.08);
+    --radius: 14px;
+    --radius-sm: 8px;
+    --shadow: 0 2px 12px rgba(127,119,221,0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #13121F;
+      --card: #1E1D2E;
+      --text: #F0EFF8;
+      --text-muted: #9A97BB;
+      --text-hint: #665F99;
+      --border: rgba(255,255,255,0.08);
+      --shadow: 0 2px 12px rgba(0,0,0,0.3);
+      --purple-light: #2A2750;
+      --teal-light: #0D3328;
+      --coral-light: #3A1A0C;
+      --pink-light: #2E1020;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    overscroll-behavior: none;
+  }
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  /* Header */
+  .header {
+    background: var(--purple);
+    color: white;
+    padding: env(safe-area-inset-top, 16px) 20px 0;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 16px);
+  }
+  .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .app-title { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+  .date-label { font-size: 13px; opacity: 0.8; }
+  /* Stats row */
+  .stats-row { display: flex; gap: 10px; padding-bottom: 16px; }
+  .stat-chip {
+    background: rgba(255,255,255,0.18);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .stat-chip span { font-weight: 700; }
+  /* Day tabs */
+  .day-tabs {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 0 4px;
+  }
+  .day-tabs::-webkit-scrollbar { display: none; }
+  .day-tab {
+    flex-shrink: 0;
+    padding: 12px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2.5px solid transparent;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .day-tab.active { color: var(--purple); border-bottom-color: var(--purple); }
+  .day-tab .dot {
+    display: inline-block;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--purple);
+    vertical-align: middle;
+    margin-left: 4px;
+    opacity: 0;
+  }
+  .day-tab .dot.has-tasks { opacity: 1; }
+  /* Member filter */
+  .member-bar {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: var(--bg);
+  }
+  .member-bar::-webkit-scrollbar { display: none; }
+  .member-pill {
+    flex-shrink: 0;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: all .15s;
+    opacity: 0.5;
+  }
+  .member-pill.active { opacity: 1; }
+  /* Task list */
+  .task-list {
+    flex: 1;
+    padding: 8px 16px 100px;
+    overflow-y: auto;
+  }
+  .empty-state {
+    text-align: center;
+    color: var(--text-hint);
+    font-size: 15px;
+    padding: 48px 0;
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 14px 14px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow);
+    transition: opacity .2s, transform .15s;
+    animation: slideIn .2s ease;
+  }
+  @keyframes slideIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: none; } }
+  .task-item.done { opacity: 0.4; }
+  .check-btn {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    transition: all .15s;
+    -webkit-appearance: none;
+  }
+  .check-btn.checked { background: var(--teal); border-color: var(--teal); color: white; }
+  .task-name {
+    flex: 1;
+    font-size: 15px;
+    transition: text-decoration .15s;
+  }
+  .task-item.done .task-name { text-decoration: line-through; }
+  .assignee-tag {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    flex-shrink: 0;
+  }
+  .del-btn {
+    background: none;
+    border: none;
+    color: var(--text-hint);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 2px 4px;
+    flex-shrink: 0;
+  }
+  /* Add task panel */
+  .add-panel {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+  }
+  .add-row { display: flex; gap: 8px; }
+  .add-input {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 22px;
+    border: 1.5px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .add-input:focus { border-color: var(--purple); }
+  .add-selects { display: flex; gap: 8px; margin-top: 8px; }
+  .add-selects select {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+  }
+  .add-btn {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--purple);
+    color: white;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform .1s, background .15s;
+  }
+  .add-btn:active { transform: scale(0.92); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-top">
+      <div class="app-title">🏠 家族の家事</div>
+      <div class="date-label" id="date-label"></div>
+    </div>
+    <div class="stats-row" id="stats-row"></div>
+  </div>
+
+  <div class="day-tabs" id="day-tabs"></div>
+  <div class="member-bar" id="member-bar"></div>
+
+  <div class="task-list" id="task-list"></div>
+
+  <div class="add-panel">
+    <div class="add-row">
+      <input class="add-input" id="new-task" placeholder="家事を追加…" />
+      <button class="add-btn" onclick="addTask()">＋</button>
+    </div>
+    <div class="add-selects">
+      <select id="new-day"></select>
+      <select id="new-member"></select>
+    </div>
+  </div>
+</div>
+
+<script>
+const DAYS = ["月曜","火曜","水曜","木曜","金曜","土曜","日曜"];
+const DAYS_EN = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const MEMBERS = [
+  { name: "Parent 1", color: "#EEEDFE", border: "#AFA9EC", text: "#3C3489" },
+  { name: "Parent 2", color: "#E1F5EE", border: "#5DCAA5", text: "#085041" },
+  { name: "Child 1",  color: "#FAECE7", border: "#F0997B", text: "#712B13" },
+  { name: "Child 2",  color: "#FBEAF0", border: "#ED93B1", text: "#72243E" },
+];
+
+const DEFAULT_TASKS = [
+  { name: "朝食の準備", day: 0, member: 0, done: false },
+  { name: "食洗機の片付け", day: 0, member: 2, done: false },
+  { name: "リビング掃除機", day: 1, member: 1, done: false },
+  { name: "ゴミ分別", day: 1, member: 3, done: false },
+  { name: "キッチン拭き掃除", day: 2, member: 0, done: false },
+  { name: "洗面台掃除", day: 2, member: 1, done: false },
+  { name: "食洗機セット", day: 3, member: 2, done: false },
+  { name: "床掃き", day: 3, member: 3, done: false },
+  { name: "キッチン床モップ", day: 4, member: 1, done: false },
+  { name: "ゴミ出し", day: 4, member: 0, done: false },
+  { name: "買い物", day: 5, member: 0, done: false },
+  { name: "家電拭き掃除", day: 5, member: 1, done: false },
+  { name: "シーツ交換", day: 5, member: 2, done: false },
+  { name: "庭/ベランダ整理", day: 6, member: 3, done: false },
+  { name: "週の食材準備", day: 6, member: 0, done: false },
+  { name: "洗濯物たたみ", day: 6, member: 1, done: false },
+];
+
+let tasks = [];
+let nextId = 0;
+let activeDay = (new Date().getDay() + 6) % 7;
+let activeMembers = new Set([0,1,2,3]);
+
+function loadData() {
+  try {
+    const saved = localStorage.getItem('family-chores-v1');
+    if (saved) {
+      const d = JSON.parse(saved);
+      tasks = d.tasks || [];
+      nextId = d.nextId || tasks.length;
+    } else {
+      tasks = DEFAULT_TASKS.map((t,i) => ({ ...t, id: i }));
+      nextId = tasks.length;
+    }
+  } catch(e) {
+    tasks = DEFAULT_TASKS.map((t,i) => ({ ...t, id: i }));
+    nextId = tasks.length;
+  }
+}
+
+function save() {
+  try { localStorage.setItem('family-chores-v1', JSON.stringify({ tasks, nextId })); } catch(e){}
+}
+
+function renderDate() {
+  const d = new Date();
+  document.getElementById('date-label').textContent =
+    d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日';
+}
+
+function renderStats() {
+  const vis = tasks.filter(t => activeMembers.has(t.member));
+  const total = vis.length, done = vis.filter(t => t.done).length;
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-chip">全 <span>${total}</span> 件</div>
+    <div class="stat-chip">✓ <span>${done}</span> 完了</div>
+    <div class="stat-chip">残り <span>${total - done}</span></div>
+  `;
+}
+
+function renderDayTabs() {
+  const el = document.getElementById('day-tabs');
+  el.innerHTML = DAYS.map((d,i) => {
+    const hasTasks = tasks.some(t => t.day === i && activeMembers.has(t.member));
+    return `<div class="day-tab ${i===activeDay?'active':''}" onclick="setDay(${i})">
+      ${d}<span class="dot ${hasTasks?'has-tasks':''}"></span>
+    </div>`;
+  }).join('');
+  const sel = document.getElementById('new-day');
+  sel.innerHTML = DAYS.map((d,i) => `<option value="${i}" ${i===activeDay?'selected':''}>${d}</option>`).join('');
+}
+
+function setDay(i) {
+  activeDay = i;
+  renderDayTabs();
+  renderList();
+}
+
+function renderMemberBar() {
+  const el = document.getElementById('member-bar');
+  el.innerHTML = MEMBERS.map((m,i) => `
+    <div class="member-pill ${activeMembers.has(i)?'active':''}"
+      style="background:${m.color};border-color:${m.border};color:${m.text}"
+      onclick="toggleMember(${i})">${m.name}</div>
+  `).join('');
+  const ms = document.getElementById('new-member');
+  ms.innerHTML = MEMBERS.map((m,i) => `<option value="${i}">${m.name}</option>`).join('');
+}
+
+function toggleMember(i) {
+  if (activeMembers.has(i)) { if (activeMembers.size > 1) activeMembers.delete(i); }
+  else activeMembers.add(i);
+  renderMemberBar(); renderStats(); renderDayTabs(); renderList();
+}
+
+function renderList() {
+  const el = document.getElementById('task-list');
+  const vis = tasks.filter(t => t.day === activeDay && activeMembers.has(t.member));
+  if (!vis.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">🌿</div>${DAYS[activeDay]}の家事はありません</div>`;
+    return;
+  }
+  el.innerHTML = vis.map(t => {
+    const m = MEMBERS[t.member];
+    return `<div class="task-item ${t.done?'done':''}" id="row-${t.id}">
+      <button class="check-btn ${t.done?'checked':''}" onclick="toggle(${t.id})" aria-label="完了切り替え">${t.done?'✓':''}</button>
+      <span class="task-name">${t.name}</span>
+      <span class="assignee-tag" style="background:${m.color};color:${m.text}">${m.name}</span>
+      <button class="del-btn" onclick="remove(${t.id})" aria-label="削除">×</button>
+    </div>`;
+  }).join('');
+}
+
+function toggle(id) {
+  const t = tasks.find(x => x.id === id);
+  if (t) { t.done = !t.done; save(); renderStats(); renderList(); }
+}
+
+function remove(id) {
+  tasks = tasks.filter(x => x.id !== id);
+  save(); renderStats(); renderDayTabs(); renderList();
+}
+
+function addTask() {
+  const inp = document.getElementById('new-task');
+  const day = parseInt(document.getElementById('new-day').value);
+  const member = parseInt(document.getElementById('new-member').value);
+  if (!inp.value.trim()) return;
+  tasks.push({ id: nextId++, name: inp.value.trim(), day, member, done: false });
+  inp.value = '';
+  save(); renderStats(); renderDayTabs();
+  activeDay = day; renderDayTabs(); renderList();
+}
+
+document.getElementById('new-task').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addTask();
+});
+
+loadData();
+renderDate();
+renderStats();
+renderDayTabs();
+renderMemberBar();
+renderList();
+</script>
+</body>
+</html>
